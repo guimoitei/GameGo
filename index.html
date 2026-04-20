@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GameGO - Play</title>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f1f5f9; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; }
@@ -50,14 +50,17 @@
         appId: "1:329648550875:web:6112d5521f117378f52dfe"
     };
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const db = firebase.database();
 
     let allGames = [];
 
-    async function loadGames() {
-        const snapshot = await db.collection('games').orderBy('createdAt', 'desc').get();
-        allGames = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderGallery(allGames);
+    // Carregar Jogos em Tempo Real
+    function loadGames() {
+        db.ref('games').on('value', (snapshot) => {
+            const data = snapshot.val();
+            allGames = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            renderGallery(allGames);
+        });
     }
 
     function renderGallery(games) {
@@ -77,26 +80,28 @@
     }
 
     function closeGame() {
-        document.getElementById('game-iframe').src = ''; // Libera RAM imediatamente
+        document.getElementById('game-iframe').src = '';
         document.getElementById('player-overlay').style.display = 'none';
         document.getElementById('ad-wrapper').innerHTML = '';
     }
 
     async function showInternalAd() {
-        const adsSnapshot = await db.collection('ads').get();
-        const ads = adsSnapshot.docs.map(doc => doc.data());
-        if (ads.length === 0) return;
-        const ad = ads[Math.floor(Math.random() * ads.length)];
-        
-        setTimeout(() => {
-            document.getElementById('ad-wrapper').innerHTML = `
-                <div id="ad-container">
-                    <a href="${ad.targetUrl}" target="_blank" class="ad-content">
-                        <img src="${ad.imageUrl}">
-                        <div><small style="color:var(--accent)">Patrocinado</small><p>${ad.text || 'Confira!'}</p></div>
-                    </a>
-                </div>`;
-        }, 4000);
+        db.ref('ads').once('value', (snapshot) => {
+            const adsData = snapshot.val();
+            if (!adsData) return;
+            const ads = Object.values(adsData);
+            const ad = ads[Math.floor(Math.random() * ads.length)];
+            
+            setTimeout(() => {
+                document.getElementById('ad-wrapper').innerHTML = `
+                    <div id="ad-container">
+                        <a href="${ad.targetUrl}" target="_blank" class="ad-content">
+                            <img src="${ad.imageUrl}">
+                            <div><small style="color:var(--accent)">Patrocinado</small><p>${ad.text || 'Confira!'}</p></div>
+                        </a>
+                    </div>`;
+            }, 4000);
+        });
     }
 
     function filterGames() {
