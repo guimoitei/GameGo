@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
     <title>GameGO Dev Hub</title>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
     <style>
         body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; display: flex; justify-content: center; padding-top: 50px; }
@@ -13,7 +13,7 @@
         label { display: block; margin-top: 15px; font-size: 13px; }
         input, select, textarea { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; margin-top: 5px; }
         button { width: 100%; margin-top: 25px; padding: 12px; background: #38bdf8; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: #0f172a; }
-        #status { text-align: center; margin-top: 10px; color: #38bdf8; font-size: 14px; }
+        #status { text-align: center; margin-top: 15px; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -27,7 +27,7 @@
         <label>Link da Thumbnail (URL)</label>
         <input type="url" id="thumb" placeholder="https://..." required>
 
-        <label>Origem do Jogo</label>
+        <label>Tipo de Origem</label>
         <select id="type" onchange="toggleMode()">
             <option value="url">URL Externa</option>
             <option value="file">Subir Arquivo (ZIP/HTML)</option>
@@ -39,7 +39,7 @@
         </div>
 
         <div id="file-box" style="display:none">
-            <label>Selecione o Arquivo</label>
+            <label>Selecionar Ficheiro</label>
             <input type="file" id="game-file">
         </div>
 
@@ -59,7 +59,7 @@
         appId: "1:329648550875:web:6112d5521f117378f52dfe"
     };
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const db = firebase.database();
     const storage = firebase.storage();
 
     function toggleMode() {
@@ -73,7 +73,8 @@
         const btn = document.getElementById('btn');
         const status = document.getElementById('status');
         btn.disabled = true;
-        status.innerText = "Enviando...";
+        status.innerText = "A processar...";
+        status.style.color = "#38bdf8";
 
         let source = document.getElementById('game-url').value;
         const type = document.getElementById('type').value;
@@ -81,24 +82,30 @@
         try {
             if (type === 'file') {
                 const file = document.getElementById('game-file').files[0];
+                if (!file) throw new Error("Selecione um ficheiro!");
+                
+                status.innerText = "A subir ficheiro para o Storage...";
                 const ref = storage.ref(`games/${Date.now()}_${file.name}`);
                 await ref.put(file);
                 source = await ref.getDownloadURL();
             }
 
-            await db.collection('games').add({
+            status.innerText = "A guardar no Realtime Database...";
+            await db.ref('games').push({
                 title: document.getElementById('title').value,
                 source: source,
                 thumbnail: document.getElementById('thumb').value,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                type: type,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
             });
 
-            alert("Jogo publicado com sucesso!");
-            location.reload();
+            status.innerText = "Publicado com sucesso!";
+            status.style.color = "#4ade80";
+            setTimeout(() => location.reload(), 2000);
         } catch (err) {
             console.error(err);
-            alert("Erro ao publicar.");
-        } finally {
+            status.innerText = "Erro: " + err.message;
+            status.style.color = "#f87171";
             btn.disabled = false;
         }
     };
