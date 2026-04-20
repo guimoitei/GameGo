@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>GameGO Dev Hub</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: #f1f5f9; display: flex; justify-content: center; padding-top: 50px; }
+        .card { background: #1e293b; padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; }
+        h2 { color: #38bdf8; }
+        label { display: block; margin-top: 15px; font-size: 13px; }
+        input, select, textarea { width: 100%; padding: 10px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 6px; box-sizing: border-box; margin-top: 5px; }
+        button { width: 100%; margin-top: 25px; padding: 12px; background: #38bdf8; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: #0f172a; }
+        #status { text-align: center; margin-top: 10px; color: #38bdf8; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Publicar Jogo</h2>
+    <form id="dev-form">
+        <label>Nome do Jogo</label>
+        <input type="text" id="title" required>
+
+        <label>Link da Thumbnail (URL)</label>
+        <input type="url" id="thumb" placeholder="https://..." required>
+
+        <label>Origem do Jogo</label>
+        <select id="type" onchange="toggleMode()">
+            <option value="url">URL Externa</option>
+            <option value="file">Subir Arquivo (ZIP/HTML)</option>
+        </select>
+
+        <div id="url-box">
+            <label>URL do Game</label>
+            <input type="url" id="game-url">
+        </div>
+
+        <div id="file-box" style="display:none">
+            <label>Selecione o Arquivo</label>
+            <input type="file" id="game-file">
+        </div>
+
+        <button type="submit" id="btn">LANÇAR NA GAMEGO</button>
+        <div id="status"></div>
+    </form>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAqw3mMEc8ZiG9ZKC8R3O5bJ8VQ4d9vwaM",
+        authDomain: "gamefriends-fc791.firebaseapp.com",
+        databaseURL: "https://gamefriends-fc791-default-rtdb.firebaseio.com",
+        projectId: "gamefriends-fc791",
+        storageBucket: "gamefriends-fc791.firebasestorage.app",
+        messagingSenderId: "329648550875",
+        appId: "1:329648550875:web:6112d5521f117378f52dfe"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const storage = firebase.storage();
+
+    function toggleMode() {
+        const isFile = document.getElementById('type').value === 'file';
+        document.getElementById('url-box').style.display = isFile ? 'none' : 'block';
+        document.getElementById('file-box').style.display = isFile ? 'block' : 'none';
+    }
+
+    document.getElementById('dev-form').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('btn');
+        const status = document.getElementById('status');
+        btn.disabled = true;
+        status.innerText = "Enviando...";
+
+        let source = document.getElementById('game-url').value;
+        const type = document.getElementById('type').value;
+
+        try {
+            if (type === 'file') {
+                const file = document.getElementById('game-file').files[0];
+                const ref = storage.ref(`games/${Date.now()}_${file.name}`);
+                await ref.put(file);
+                source = await ref.getDownloadURL();
+            }
+
+            await db.collection('games').add({
+                title: document.getElementById('title').value,
+                source: source,
+                thumbnail: document.getElementById('thumb').value,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert("Jogo publicado com sucesso!");
+            location.reload();
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao publicar.");
+        } finally {
+            btn.disabled = false;
+        }
+    };
+</script>
+</body>
+</html>
