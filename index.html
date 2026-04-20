@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GameGO - Play</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <style>
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #38bdf8; --text: #f1f5f9; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); margin: 0; }
+        header { padding: 20px; text-align: center; background: #1e293b; border-bottom: 2px solid var(--accent); }
+        #search-input { width: 80%; max-width: 500px; padding: 12px; border-radius: 8px; border: none; font-size: 16px; background: #0f172a; color: white; }
+        .container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; padding: 30px; }
+        .game-card { background: var(--card); border-radius: 12px; overflow: hidden; cursor: pointer; transition: 0.3s; border: 1px solid transparent; }
+        .game-card:hover { transform: translateY(-5px); border-color: var(--accent); }
+        .game-card img { width: 100%; height: 150px; object-fit: cover; }
+        .game-card h3 { padding: 10px; margin: 0; font-size: 1.1rem; }
+        #player-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 2000; }
+        iframe { width: 100%; height: 100%; border: none; }
+        #close-btn { position: absolute; top: 15px; right: 20px; background: var(--accent); color: #000; border: none; padding: 10px 20px; cursor: pointer; font-weight: bold; border-radius: 5px; z-index: 3000; }
+        #ad-container { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 320px; background: rgba(30, 41, 59, 0.9); border: 2px solid var(--accent); border-radius: 8px; display: flex; align-items: center; padding: 10px; }
+        .ad-content { display: flex; align-items: center; text-decoration: none; color: white; gap: 10px; font-size: 14px; }
+        .ad-content img { width: 60px; height: 60px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>GameGO Play</h1>
+    <input type="text" id="search-input" placeholder="Buscar jogos..." oninput="filterGames()">
+</header>
+
+<div class="container" id="gallery"></div>
+
+<div id="player-overlay">
+    <button id="close-btn" onclick="closeGame()">SAIR DO JOGO</button>
+    <div id="ad-wrapper"></div>
+    <iframe id="game-iframe" sandbox="allow-scripts allow-same-origin"></iframe>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAqw3mMEc8ZiG9ZKC8R3O5bJ8VQ4d9vwaM",
+        authDomain: "gamefriends-fc791.firebaseapp.com",
+        databaseURL: "https://gamefriends-fc791-default-rtdb.firebaseio.com",
+        projectId: "gamefriends-fc791",
+        storageBucket: "gamefriends-fc791.firebasestorage.app",
+        messagingSenderId: "329648550875",
+        appId: "1:329648550875:web:6112d5521f117378f52dfe"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    let allGames = [];
+
+    async function loadGames() {
+        const snapshot = await db.collection('games').orderBy('createdAt', 'desc').get();
+        allGames = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderGallery(allGames);
+    }
+
+    function renderGallery(games) {
+        const gallery = document.getElementById('gallery');
+        gallery.innerHTML = games.map(game => `
+            <div class="game-card" onclick="openGame('${game.source}')">
+                <img src="${game.thumbnail || 'https://via.placeholder.com/200'}" alt="${game.title}">
+                <h3>${game.title}</h3>
+            </div>
+        `).join('');
+    }
+
+    function openGame(url) {
+        document.getElementById('game-iframe').src = url;
+        document.getElementById('player-overlay').style.display = 'block';
+        showInternalAd();
+    }
+
+    function closeGame() {
+        document.getElementById('game-iframe').src = ''; // Libera RAM imediatamente
+        document.getElementById('player-overlay').style.display = 'none';
+        document.getElementById('ad-wrapper').innerHTML = '';
+    }
+
+    async function showInternalAd() {
+        const adsSnapshot = await db.collection('ads').get();
+        const ads = adsSnapshot.docs.map(doc => doc.data());
+        if (ads.length === 0) return;
+        const ad = ads[Math.floor(Math.random() * ads.length)];
+        
+        setTimeout(() => {
+            document.getElementById('ad-wrapper').innerHTML = `
+                <div id="ad-container">
+                    <a href="${ad.targetUrl}" target="_blank" class="ad-content">
+                        <img src="${ad.imageUrl}">
+                        <div><small style="color:var(--accent)">Patrocinado</small><p>${ad.text || 'Confira!'}</p></div>
+                    </a>
+                </div>`;
+        }, 4000);
+    }
+
+    function filterGames() {
+        const term = document.getElementById('search-input').value.toLowerCase();
+        renderGallery(allGames.filter(g => g.title.toLowerCase().includes(term)));
+    }
+
+    loadGames();
+</script>
+</body>
+</html>
